@@ -1,0 +1,87 @@
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+from api_client import APIClient
+from audio_processor import AudioProcessor, SpectrogramGenerator
+
+class UIComponents:
+    @staticmethod
+    def display_system_metrics():
+        metrics = APIClient.fetch_system_metrics()
+        
+        if metrics:
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("CPU Usage", f"{metrics['cpu_usage']:.1f}%")
+            with col2:
+                st.metric("RAM Usage", f"{metrics['ram_usage']:.1f}%")
+            with col3:
+                st.metric("Disk Usage", f"{metrics['disk_usage']:.1f}%")
+            with col4:
+                temp = metrics.get('temperature', 'N/A')
+                if temp != 'N/A':
+                    st.metric("Temperature", f"{temp:.1f}°C")
+                else:
+                    st.metric("Temperature", "N/A")
+        else:
+            st.info("In attesa di dati dal server...")
+
+    @staticmethod
+    def display_audio_and_spectrogram(timestamp: int, offset: float):
+        if not AudioProcessor.download_and_cache_audio(timestamp):
+            return
+        
+        file_path = AudioProcessor.get_cached_audio_path(timestamp)
+        
+        try:
+            audio_data = file_path.read_bytes()
+            trimmed_audio_buffer = AudioProcessor.extract_audio_segment(audio_data, offset)
+            
+            col1, col2 = st.columns([1, 2])
+            
+            with col1:
+                st.subheader("Audio")
+                st.audio(trimmed_audio_buffer, format="audio/wav")
+            
+            with col2:
+                st.subheader("Spectrogram")
+                with st.spinner("Spectrogram generation..."):
+                    fig = SpectrogramGenerator.create_spectrogram(trimmed_audio_buffer)
+                    st.pyplot(fig)
+                    plt.close(fig) 
+                    
+        except Exception as e:
+            st.error(f"Errore nell'elaborazione dell'audio: {e}")
+
+    @staticmethod
+    def display_detections_table(df_filtered: pd.DataFrame):
+        """Mostra la tabella delle detection"""
+        if df_filtered.empty:
+            st.info("Nessun rilevamento per questa data.")
+            return None
+        
+        # Prepara i dati per la visualizzazione
+        display_df = df_filtered[['date', 'time', 'species', 'confidence']].copy()
+        display_df['confidence'] = display_df['confidence'].round(3)
+        
+        st.dataframe(
+            display_df,
+            key="detections_table",
+            on_select="rerun",
+            selection_mode="single-row",
+            height=500,
+            hide_index=True,
+            use_container_width=True
+        )
+        
+        # Gestisci selezione
+        selected_rows = st.session_state.detections_table.selection.rows
+        if selected_rows:
+            selected_index = selected_rows[0]
+            return {
+                'timestamp': int(df_filtered.iloc[selected_index]["timestamp"]),
+                'offset': float(df_filtered.iloc[selected_index]["offset"])
+            }
+        return None
+
