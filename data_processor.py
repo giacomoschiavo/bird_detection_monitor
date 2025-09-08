@@ -3,6 +3,7 @@ import pandas as pd
 from typing import List, Dict, Any
 import logging 
 from config import Config
+import os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -23,9 +24,35 @@ class DataProcessor:
             return {}
         
     @staticmethod
-    def process_detections(detections: List[Dict[str, Any]], selected_date: int) -> pd.DataFrame:
+    def get_confidence_thresholds(thresholds_path: str = "/data/species_confidence.csv"):
+        try:
+            if os.path.exists(thresholds_path):
+                df = pd.read_csv(thresholds_path)
+                return dict(zip(df["species"], df["threshold"]))
+            else:
+                logger.warning(f"Threshold folder not loaded. Using a default threshold of 0.2")
+                return {}
+        except Exception as e:
+            logger.error("Error while fetching species threshold")
+        
+    @staticmethod
+    def process_detections(detections: List[Dict[str, Any]], selected_date: int, confidence_thresholds: Dict[str, float] = None) -> pd.DataFrame:
+        """
+        Elabora le detection applicando la logica delle threshold per gruppo datetime
+        
+        Logica:
+        1. Per ogni datetime, se è presente 'None' e supera la sua threshold -> elimina tutto il gruppo
+        2. Se 'None' è presente ma non supera threshold -> controlla altre specie nel gruppo
+        3. Se in un datetime c'è solo 'None' -> elimina il datetime
+        4. Mantieni solo le specie che superano le loro threshold individuali
+        """
+
         if not detections:
             return pd.DataFrame()
+        
+        if confidence_thresholds is None:
+            confidence_thresholds = {}
+
         df = pd.DataFrame(detections)
 
         df['datetime'] = pd.to_datetime(df['timestamp'], unit='s', utc=True) + pd.to_timedelta(df['offset'], unit='s')
@@ -34,11 +61,46 @@ class DataProcessor:
         df['date'] = df['datetime'].dt.date
         df['time'] = df['datetime'].dt.time
 
-        last_detection = df['datetime'].max()
-        st.metric("Ultimo rilevamento", last_detection.strftime("%H:%M:%S"))
+        if not df.empty:
+            last_detection = df['datetime'].max()
+            st.metric("Ultimo rilevamento", last_detection.strftime("%H:%M:%S"))
 
         df_filtered = df[df['date'] == selected_date]
-        df_filtered.sort_values(by="datetime", ascending=False, inplace=True)
+        
+        if df_filtered.empty:
+            return df_filtered
+        
+        final_rows = []
+        for datetime_group, group_df in df_filtered.groupby("datetime"):
+            # cerca none nel gruppo
+            none_rows = group_df[group_df["species"] == "None_"]
+            other_species_rows = group_df[group_df["species"] != "None_"]
 
-        return df_filtered
+            # caso solo None 
+            if len(none_rows) > 0 and len(other_species_rows) == 0:
+                continue    # skip this datetime
+
+            # caso none con altre specie
+            if len(none_rows) > 0:
+                none_confidence = none_rows.iloc[0]["confidence"]
+                none_threshold = confidence_thresholds.get("None_", 0.2)
+
+                if none_confidence >= none_threshold:
+                    continue    # skip this datetime
+
+            # controlla le altre specie
+            for _, row in other_species_rows.iterrows():
+                species = row["species"]
+                confidence = row["confidence"]
+                threshold = confidence_thresholds.get(species, 0.2)
+
+                if confidence >= threshold:
+                    final_rows.append(row)
+
+        if final_rows:
+            result_df = pd.DataFrame(final_rows)
+            result_df.sort_values(by="datetime", ascending=False, inplace=True)
+            return result_df
+
+        return pd.DataFrame(columns=df_filtered.columns)
     

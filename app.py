@@ -61,6 +61,7 @@ st.header("🐦 Rilevamenti")
 
 with st.spinner("Caricamento rilevamenti..."):
     detections = fetch_new_detections(selected_date)
+    confidence_thresholds = DataProcessor.get_confidence_thresholds(Config.CUSTOM_THRESHOLDS_PATH)
     df_filtered = DataProcessor.process_detections(detections, selected_date)
 
 if not df_filtered.empty:
