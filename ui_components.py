@@ -10,26 +10,32 @@ class UIComponents:
         metrics = APIClient.fetch_system_metrics()
         
         if metrics:
-            col1, col2, col3, col4 = st.columns(4)
+            # col1, col2, col3, col4 = st.columns(4)
             
-            with col1:
-                st.metric("CPU Usage", f"{metrics['cpu_usage']:.1f}%")
-            with col2:
-                st.metric("RAM Usage", f"{metrics['ram_usage']:.1f}%")
-            with col3:
-                st.metric("Disk Usage", f"{metrics['disk_usage']:.1f}%")
-            with col4:
-                temp = metrics.get('temperature', 'N/A')
-                if temp != 'N/A':
-                    st.metric("Temperature", f"{temp:.1f}°C")
-                else:
-                    st.metric("Temperature", "N/A")
+            # with col1:
+            st.markdown(f"CPU Usage: **{metrics['cpu_usage']:.1f}%**")
+            st.markdown(f"RAM Usage: **{metrics['ram_usage']:.1f}%**")
+            st.markdown(f"Disk Usage: **{metrics['disk_usage']:.1f}%**")
+        # with col2:
+        # with col4:
+            temp = metrics.get('temperature', 'N/A')
+            if temp != 'N/A':
+                st.markdown(f"Temperature: **{temp:.1f}°C**")
+            else:
+                st.markdown("Temperature: **N/A**")
         else:
             st.info("Waiting for new data...")
 
     @staticmethod
     def display_audio_and_spectrogram(timestamp: int, offset: float):
         if not AudioProcessor.download_and_cache_audio(timestamp):
+            warn = st.warning("Audio download failed. Check connection or try again.")
+            retry = st.button("Retry download", key=f"retry_{timestamp}", help="Attempt to download audio again")
+            if retry:
+                if AudioProcessor.download_and_cache_audio(timestamp):
+                    st.rerun()
+                else:
+                    st.error("Retry failed. Please try later.")
             return
         
         file_path = AudioProcessor.get_cached_audio_path(timestamp)
@@ -38,22 +44,18 @@ class UIComponents:
             audio_data = file_path.read_bytes()
             trimmed_audio_buffer = AudioProcessor.extract_audio_segment(audio_data, offset)
             
-            col1, col2 = st.columns([1, 2])
-            
-            with col1:
-                st.subheader("Audio")
-                st.text(f"Audio name: {timestamp}.wav")
-                st.audio(trimmed_audio_buffer, format="audio/wav")
-            
-            with col2:
-                st.subheader("Spectrogram")
-                with st.spinner("Spectrogram generation..."):
-                    fig = SpectrogramGenerator.create_spectrogram(trimmed_audio_buffer)
-                    st.pyplot(fig)
-                    plt.close(fig) 
+            st.subheader("Audio")
+            st.text(f"Audio name: {timestamp}.wav")
+            st.audio(trimmed_audio_buffer, format="audio/wav")
+        
+            st.subheader("Spectrogram")
+            with st.spinner("Spectrogram generation..."):
+                fig = SpectrogramGenerator.create_spectrogram_xc(trimmed_audio_buffer)
+                st.pyplot(fig)
+                plt.close(fig) 
                     
         except Exception as e:
-            st.error(f"Errore nell'elaborazione dell'audio: {e}")
+            st.error(f"Audio processing error: {e}")
 
     @staticmethod
     def display_detections_table(df_filtered: pd.DataFrame):
@@ -65,7 +67,6 @@ class UIComponents:
         # Prepara i dati per la visualizzazione
         display_df = df_filtered[['date', 'time', 'species', 'confidence']].copy()
         display_df['confidence'] = display_df['confidence'].round(3)
-        
 
         st.dataframe(
             display_df,

@@ -38,8 +38,7 @@ class DataProcessor:
     @staticmethod
     def process_detections(detections: List[Dict[str, Any]], 
                            selected_date: int, 
-                           confidence_thresholds: Dict[str, float] = None,
-                           remove_None: bool = True) -> pd.DataFrame:
+                           confidence_thresholds: Dict[str, float] = None) -> pd.DataFrame:
         """
         Elabora le detection applicando la logica delle threshold per gruppo datetime
         
@@ -69,9 +68,6 @@ class DataProcessor:
         if df_filtered.empty:
             return df_filtered
         
-        if remove_None is False:
-            return df_filtered.sort_values(by="datetime", ascending=False)
-
         final_rows = []
         for datetime_group, group_df in df_filtered.groupby("datetime"):
             # cerca none nel gruppo
@@ -106,3 +102,9 @@ class DataProcessor:
 
         return pd.DataFrame(columns=df_filtered.columns)
     
+    @staticmethod
+    def filter_non_species(df, non_species_list):
+        if df.empty or "species" not in df.columns:
+            return df
+        mask = ~df["species"].astype(str).str.startswith(non_species_list)
+        return df[mask]

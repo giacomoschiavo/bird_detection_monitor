@@ -32,15 +32,20 @@ def fetch_system_metrics():
 
     
 # Sidebar
-with st.sidebar:
+with st.sidebar:        
+    
+    # Metriche di sistema
+    st.header("📊 System status")
+    with st.spinner('Loading system status...'):
+        UIComponents.display_system_metrics()
+
     st.header("Settings")
-    selected_date = st.date_input("Date selection", value=datetime.now().date())
+    selected_date = st.date_input("Select date", value=datetime.now().date())
 
     if "last_selected_date" not in st.session_state:
         st.session_state.last_selected_date = selected_date
 
-    # if date changed while one row is selected
-    # remove selection
+    # if date changed while one row is selected -> remove selection
     date_changed = selected_date != st.session_state.last_selected_date
     if date_changed:
         if 'detections_table' in st.session_state:
@@ -50,30 +55,63 @@ with st.sidebar:
                 st.session_state.pop('detections_table', None)
         st.session_state.last_selected_date = selected_date
 
-    if st.button("🔄 Refresh", width="stretch"):
+    st.subheader('Table view')
+    show_all = st.toggle('Show all', value=False, help='Render all detections for the selected date')
+    max_rows = st.slider('Rows to show', min_value=100, max_value=500, value=250, step=50, disabled=show_all,
+                         help="Number of most recent detections to render when 'Show all' is off")
+
+    hide_non_species = st.toggle("Hide non-species classes", value=True,
+                                 help="Filter out classes like None_, Wind_, Rain_, etc.")
+
+
+    st.header("Controls")
+
+    if "is_fetching" not in st.session_state:
+        st.session_state.is_fetching = False
+    if "last_refresh_at" not in st.session_state:
+        st.session_state.last_refresh_at = None
+
+    if st.session_state.last_refresh_at:
+        st.caption(f"Last refresh: {st.session_state.last_refresh_at.strftime('%H:%M:%S')}")
+    refresh_clicked = st.button("🔄 Refresh", width="stretch", disabled=st.session_state.is_fetching)
+    if refresh_clicked and not st.session_state.is_fetching:
         st.cache_data.clear()
+        st.session_state.is_fetching = True
         st.rerun()
     
-    if st.button("🗑️ Clean Cache", width="stretch"):
-        Utils.clear_audio_cache()
+    st.button("🗑️ Clean Cache", width="stretch", on_click=Utils.clear_audio_cache, disabled=st.session_state.is_fetching)
+
     
     # show cache info
     cache_files = list(Config.AUDIO_CACHE_DIR.glob("*.wav"))
     st.info(f"Audio file in cache: {len(cache_files)}")
 
-# Metriche di sistema
-st.header("📊 System status")
-UIComponents.display_system_metrics()
 
-st.divider()
+# Metriche di sistema
+# st.header("📊 System status")
+# with st.spinner('Loading system status...'):
+#     UIComponents.display_system_metrics()
+# st.divider()
 
 # Detection
 st.header("🐦 Detections")
 
-with st.spinner("Loading..."):
-    detections = fetch_new_detections(selected_date)
-    confidence_thresholds = DataProcessor.get_confidence_thresholds(Config.CUSTOM_THRESHOLDS_PATH)
-    df_filtered = DataProcessor.process_detections(detections, selected_date, confidence_thresholds, remove_None=False)
+try:
+    st.session_state.is_fetching = True
+    with st.spinner("Loading..."):
+        detections = fetch_new_detections(selected_date)
+        confidence_thresholds = DataProcessor.get_confidence_thresholds(Config.CUSTOM_THRESHOLDS_PATH)
+        df_filtered = DataProcessor.process_detections(detections, selected_date, confidence_thresholds)
+finally:
+    st.session_state.is_fetching = False
+    st.session_state.last_refresh_at = datetime.now()
+
+df_view = df_filtered   # by default
+if hide_non_species:
+    df_view = DataProcessor.filter_non_species(df_view, Config.NON_SPECIES_PREFIXES)
+
+if not df_filtered.empty and not show_all:
+    df_view = df_view.head(max_rows)
 
 if not df_filtered.empty:
     # Statistiche rapide
@@ -89,7 +127,7 @@ if not df_filtered.empty:
             st.metric("Last detection", last_detection.strftime("%H:%M:%S"))
 
 # Tabella detection
-selection = UIComponents.display_detections_table(df_filtered)
+selection = UIComponents.display_detections_table(df_view)
 
 if not selection:
     st.info("Select a row to listen to the audio")

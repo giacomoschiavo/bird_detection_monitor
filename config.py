@@ -10,5 +10,7 @@ class Config:
   REQUEST_TIMEOUT = 5
   CACHE_TTL_DETECTIONS = 15
   CACHE_TTL_METRICS = 5
+  NON_SPECIES_PREFIXES = ("None_", "Wind_", "Rain_", "Insect_")
+
 
 Config.AUDIO_CACHE_DIR.mkdir(parents=True, exist_ok=True)

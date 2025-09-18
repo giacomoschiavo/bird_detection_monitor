@@ -1,5 +1,6 @@
 from config import Config
 import streamlit as st
+import pandas as pd
 
 class Utils:
     @staticmethod
