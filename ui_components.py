@@ -25,7 +25,7 @@ class UIComponents:
                 else:
                     st.metric("Temperature", "N/A")
         else:
-            st.info("In attesa di dati dal server...")
+            st.info("Waiting for new data...")
 
     @staticmethod
     def display_audio_and_spectrogram(timestamp: int, offset: float):
@@ -42,6 +42,7 @@ class UIComponents:
             
             with col1:
                 st.subheader("Audio")
+                st.text(f"Audio name: {timestamp}.wav")
                 st.audio(trimmed_audio_buffer, format="audio/wav")
             
             with col2:
@@ -65,18 +66,23 @@ class UIComponents:
         display_df = df_filtered[['date', 'time', 'species', 'confidence']].copy()
         display_df['confidence'] = display_df['confidence'].round(3)
         
+
         st.dataframe(
             display_df,
-            key="detections_table",
+            key="detections_table",     # st.session_state.detections_table
             on_select="rerun",
             selection_mode="single-row",
             height=500,
             hide_index=True,
-            use_container_width=True
+            width='stretch'
         )
         
-        # Gestisci selezione
-        selected_rows = st.session_state.detections_table.selection.rows
+        # handle selection
+        selected_rows = []
+        table_state = st.session_state.get('detections_table')
+        if table_state is not None:
+            selected_rows = getattr(getattr(table_state, 'selection', None), 'rows', [])
+        
         if selected_rows:
             selected_index = selected_rows[0]
             return {

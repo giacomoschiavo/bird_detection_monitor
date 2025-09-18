@@ -22,7 +22,6 @@ st.set_page_config(
 )
 # st_autorefresh(interval=REFRESH_RATE, limit=None, key="api_request")
 
-
 @st.cache_data(ttl=Config.CACHE_TTL_DETECTIONS)
 def fetch_new_detections(date: datetime.date):
     return APIClient.fetch_detections(date)
@@ -34,54 +33,67 @@ def fetch_system_metrics():
     
 # Sidebar
 with st.sidebar:
-    st.header("Controlli")
-    
-    if st.button("🔄 Aggiorna", use_container_width=True):
+    st.header("Settings")
+    selected_date = st.date_input("Date selection", value=datetime.now().date())
+
+    if "last_selected_date" not in st.session_state:
+        st.session_state.last_selected_date = selected_date
+
+    # if date changed while one row is selected
+    # remove selection
+    date_changed = selected_date != st.session_state.last_selected_date
+    if date_changed:
+        if 'detections_table' in st.session_state:
+            try:
+                st.session_state.detections_table.selection.rows = []
+            except Exception:
+                st.session_state.pop('detections_table', None)
+        st.session_state.last_selected_date = selected_date
+
+    if st.button("🔄 Refresh", width="stretch"):
         st.cache_data.clear()
         st.rerun()
     
-    if st.button("🗑️ Pulisci Cache Audio", use_container_width=True):
+    if st.button("🗑️ Clean Cache", width="stretch"):
         Utils.clear_audio_cache()
     
-    st.header("Impostazioni")
-    selected_date = st.date_input("Seleziona data", value=datetime.now().date())
-    
-    # Mostra info cache
+    # show cache info
     cache_files = list(Config.AUDIO_CACHE_DIR.glob("*.wav"))
-    st.info(f"File audio in cache: {len(cache_files)}")
+    st.info(f"Audio file in cache: {len(cache_files)}")
 
 # Metriche di sistema
-st.header("📊 Stato Sistema")
+st.header("📊 System status")
 UIComponents.display_system_metrics()
 
 st.divider()
 
 # Detection
-st.header("🐦 Rilevamenti")
+st.header("🐦 Detections")
 
-with st.spinner("Caricamento rilevamenti..."):
+with st.spinner("Loading..."):
     detections = fetch_new_detections(selected_date)
     confidence_thresholds = DataProcessor.get_confidence_thresholds(Config.CUSTOM_THRESHOLDS_PATH)
-    df_filtered = DataProcessor.process_detections(detections, selected_date)
+    df_filtered = DataProcessor.process_detections(detections, selected_date, confidence_thresholds, remove_None=False)
 
 if not df_filtered.empty:
     # Statistiche rapide
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Totale rilevamenti", len(df_filtered))
+        st.metric("Total detections", len(df_filtered))
     with col2:
         unique_species = df_filtered['species'].nunique()
-        st.metric("Specie uniche", unique_species)
+        st.metric("Unique species", unique_species)
     with col3:
         if not df_filtered.empty:
             last_detection = df_filtered['datetime'].iloc[0]
-            st.metric("Ultimo rilevamento", last_detection.strftime("%H:%M:%S"))
+            st.metric("Last detection", last_detection.strftime("%H:%M:%S"))
 
 # Tabella detection
 selection = UIComponents.display_detections_table(df_filtered)
 
-# Audio e spettrogramma
-if selection:
+if not selection:
+    st.info("Select a row to listen to the audio")
+else:
     st.divider()
-    st.header("🎵 Analisi Audio")
+    st.header("🎵 Audio Analysis")
     UIComponents.display_audio_and_spectrogram(selection['timestamp'], selection['offset'])

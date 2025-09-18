@@ -36,7 +36,10 @@ class DataProcessor:
             logger.error("Error while fetching species threshold")
         
     @staticmethod
-    def process_detections(detections: List[Dict[str, Any]], selected_date: int, confidence_thresholds: Dict[str, float] = None) -> pd.DataFrame:
+    def process_detections(detections: List[Dict[str, Any]], 
+                           selected_date: int, 
+                           confidence_thresholds: Dict[str, float] = None,
+                           remove_None: bool = True) -> pd.DataFrame:
         """
         Elabora le detection applicando la logica delle threshold per gruppo datetime
         
@@ -61,15 +64,14 @@ class DataProcessor:
         df['date'] = df['datetime'].dt.date
         df['time'] = df['datetime'].dt.time
 
-        if not df.empty:
-            last_detection = df['datetime'].max()
-            st.metric("Ultimo rilevamento", last_detection.strftime("%H:%M:%S"))
-
         df_filtered = df[df['date'] == selected_date]
         
         if df_filtered.empty:
             return df_filtered
         
+        if remove_None is False:
+            return df_filtered.sort_values(by="datetime", ascending=False)
+
         final_rows = []
         for datetime_group, group_df in df_filtered.groupby("datetime"):
             # cerca none nel gruppo
