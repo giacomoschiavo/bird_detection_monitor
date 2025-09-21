@@ -67,9 +67,10 @@ class UIComponents:
         display_df = df[['date', 'time', 'species', 'confidence', 'threshold', 'confidence_level']].copy()
         display_df['confidence'] = display_df['confidence'].round(3)
         display_df['species'] = display_df['species'].str.replace('_', ' - ')
+        styled_df = display_df.style.map(UIComponents._color_confidence_level, subset=['confidence_level'])
 
         st.dataframe(
-            display_df,
+            styled_df,
             key="detections_table",     # st.session_state.detections_table
             on_select="rerun",
             selection_mode="single-row",
@@ -92,3 +93,14 @@ class UIComponents:
             }
         return None
 
+    @staticmethod
+    def _color_confidence_level(val):
+        """Colora le celle in base al livello di confidenza"""
+        color_map = {
+            'very_low': 'background-color: #d32f2f; color: white;',    # Rosso scuro
+            'low': 'background-color: #f57c00; color: white',         # Arancione  
+            'medium': 'background-color: #fbc02d; color: black',      # Giallo
+            'high': 'background-color: #689f38; color: white',        # Verde chiaro
+            'very_high': 'background-color: #388e3c; color: white'    # Verde scuro
+        }
+        return color_map.get(val, '')
