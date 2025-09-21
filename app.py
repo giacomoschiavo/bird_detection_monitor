@@ -82,6 +82,8 @@ with st.sidebar:
 
 # Detection
 st.header("🐦 Detections")
+
+# Dates selection
 selected_dates = st.date_input(
     "Select date range",
     value=(datetime.now().date() -  timedelta(days=7), datetime.now().date()),
@@ -114,29 +116,31 @@ try:
     with st.spinner("Loading..."):
         detections = fetch_new_detections(start_date, end_date)
         confidence_thresholds = DataProcessor.get_confidence_thresholds(Config.CUSTOM_THRESHOLDS_PATH)
-        df_filtered = DataProcessor.process_detections(detections, confidence_thresholds, show_all=show_all)
+        df = DataProcessor.process_detections(detections, confidence_thresholds, show_all=show_all)
+        df = Utils.add_confidence_level_column(df, confidence_thresholds)
+
 finally:
     st.session_state.is_fetching = False
     st.session_state.last_refresh_at = datetime.now()
 
-df_view = df_filtered   # by default
+df_view = df   # by default
 if hide_non_species:
     df_view = DataProcessor.filter_non_species(df_view, Config.NON_SPECIES_PREFIXES)
 
-if not df_filtered.empty and not show_all:
+if not df.empty and not show_all:
     df_view = df_view.head(max_rows)
 
-if not df_filtered.empty:
+if not df.empty:
     # Statistiche rapide
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Total detections", len(df_filtered))
+        st.metric("Total detections", len(df))
     with col2:
-        unique_species = df_filtered['species'].nunique()
+        unique_species = df['species'].nunique()
         st.metric("Unique species", unique_species)
     with col3:
-        if not df_filtered.empty:
-            last_detection = df_filtered['datetime'].iloc[0]
+        if not df.empty:
+            last_detection = df['datetime'].iloc[0]
             st.metric("Last detection", last_detection.strftime("%H:%M:%S"))
 
 # Tabella detection
@@ -148,7 +152,9 @@ else:
     st.divider()
     st.header("🎵 Audio Analysis")
     UIComponents.display_audio_and_spectrogram(selection['timestamp'], selection['offset'])
-    segment_detections = df_filtered[(df_filtered['timestamp'] == selection['timestamp']) & (df_filtered['offset'] == selection['offset'])]
+
+    # show species and confidence scores in the same segment
+    segment_detections = df[(df['timestamp'] == selection['timestamp']) & (df['offset'] == selection['offset'])]
     segment_detections.sort_values('confidence', ascending=False)
     species_confidence = segment_detections[['species', 'confidence']].values.tolist()
     for species, conf in species_confidence:

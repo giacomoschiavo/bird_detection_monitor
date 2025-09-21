@@ -58,13 +58,13 @@ class UIComponents:
             st.error(f"Audio processing error: {e}")
 
     @staticmethod
-    def display_detections_table(df_filtered: pd.DataFrame):
-        if df_filtered.empty:
+    def display_detections_table(df: pd.DataFrame):
+        if df.empty:
             st.info("Nessun rilevamento per questa data.")
             return None
         
         # Prepara i dati per la visualizzazione
-        display_df = df_filtered[['date', 'time', 'species', 'confidence']].copy()
+        display_df = df[['date', 'time', 'species', 'confidence', 'threshold', 'confidence_level']].copy()
         display_df['confidence'] = display_df['confidence'].round(3)
         display_df['species'] = display_df['species'].str.replace('_', ' - ')
 
@@ -87,8 +87,8 @@ class UIComponents:
         if selected_rows:
             selected_index = selected_rows[0]
             return {
-                'timestamp': int(df_filtered.iloc[selected_index]["timestamp"]),
-                'offset': float(df_filtered.iloc[selected_index]["offset"])
+                'timestamp': int(df.iloc[selected_index]["timestamp"]),
+                'offset': float(df.iloc[selected_index]["offset"])
             }
         return None
 
