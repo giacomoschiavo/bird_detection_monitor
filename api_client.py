@@ -9,13 +9,14 @@ class APIClient:
   
     # request info from a specific date (timestamp from midnight of that day)
     @staticmethod
-    def fetch_detections(date: datetime.date) -> List[Dict[str, Any]]:
+    def fetch_detections(start_date: datetime.date, end_date: datetime.date) -> List[Dict[str, Any]]:
         # combine the date with a time of midnight (00:00:00)
-        midnight_ts = int(datetime.combine(date, time.min).timestamp())
+        start_ts = int(datetime.combine(start_date, time.min).timestamp())
+        end_ts = int(datetime.combine(end_date, time.max).timestamp())
         try:
             response = requests.get(
                 f"{Config.API_BASE}/birds/classifications",
-                params={"since": midnight_ts}, 
+                params={"since": start_ts, "until": end_ts}, 
                 timeout=Config.REQUEST_TIMEOUT
             )
             response.raise_for_status()

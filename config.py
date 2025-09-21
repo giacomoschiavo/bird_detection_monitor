@@ -1,7 +1,7 @@
 from pathlib import Path
 
 class Config:
-  RASPBERRY_IP = "172.25.202.183" 
+  RASPBERRY_IP = "172.25.202.101" 
   API_BASE = f"http://{RASPBERRY_IP}:5001/api"
   REFRESH_RATE = 15000
   AUDIO_CACHE_DIR = Path("data/downloaded_audio")

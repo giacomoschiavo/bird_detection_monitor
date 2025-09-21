@@ -81,18 +81,17 @@ class SpectrogramGenerator:
     @staticmethod
     def create_spectrogram_xc(audio_buffer: io.BytesIO) -> plt.Figure:
         try:
-            # 1) Read WAV
             sample_rate, samples = wavfile.read(audio_buffer)
             if samples.ndim > 1:
                 samples = samples[:, 0]  # mono
             # Cast to float32 in [-1,1] if PCM ints
-            if np.issubdtype(samples.dtype, np.integer):
-                max_val = np.iinfo(samples.dtype).max
-                samples = samples.astype(np.float32) / max_val
+            # if np.issubdtype(samples.dtype, np.integer):
+            #     max_val = np.iinfo(samples.dtype).max
+            #     samples = samples.astype(np.float32) / max_val
 
-            # 2) STFT params (XC-like for birdsong)
+            # STFT params
             # Hann window, relatively long window for better freq detail on whistles
-            nperseg = 1024  # try 1024–2048 for more freq resolution
+            nperseg = 1024 
             noverlap = int(nperseg * 0.75)
             window = "hann"
 
@@ -107,7 +106,7 @@ class SpectrogramGenerator:
                 scaling="density"
             )
 
-            # 3) Convert to dB and clamp dynamic range (XC/Audacity/Praat often ~70–80 dB)
+            # convert to dB and clamp dynamic range (70–80 dB)
             eps = 1e-12
             Sxx_db = 10 * np.log10(Sxx + eps)
             vmax = np.max(Sxx_db)
@@ -115,13 +114,12 @@ class SpectrogramGenerator:
             vmin = vmax - dyn_range
             Sxx_db = np.clip(Sxx_db, vmin, vmax)
 
-            # 4) Limit frequency axis to ~12 kHz (most passerine content)
+            # limit frequency 12 kHz
             fmax = 12000  # Hz
             fmask = freqs <= fmax
             freqs_plot = freqs[fmask]
             Sxx_db_plot = Sxx_db[fmask, :]
 
-            # 5) Plot: grayscale reversed (bright = strong), clean axes
             fig, ax = plt.subplots(figsize=(12, 6))
             im = ax.pcolormesh(
                 times,
@@ -134,14 +132,9 @@ class SpectrogramGenerator:
             )
             ax.set_ylabel("Frequency (Hz)")
             ax.set_xlabel("Time (s)")
-            ax.set_title("Spectrogram")
-            cbar = plt.colorbar(im, ax=ax, pad=0.01)
-            cbar.ax.invert_yaxis()
-            cbar.set_label("Power (dB)")
-
-            # Aesthetic tweaks like XC: tight layout, minimal spines
-            for spine in ["top", "right"]:
-                ax.spines[spine].set_visible(False)
+            # cbar = plt.colorbar(im, ax=ax, pad=0.01)
+            # cbar.ax.invert_yaxis()
+            # cbar.set_label("Power (dB)")
             fig.tight_layout()
             return fig
         except Exception as e:

@@ -6,6 +6,7 @@ from api_client import APIClient
 from data_processor import DataProcessor
 from utils import Utils
 from ui_components import UIComponents
+from datetime import datetime, timedelta
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -23,8 +24,8 @@ st.set_page_config(
 # st_autorefresh(interval=REFRESH_RATE, limit=None, key="api_request")
 
 @st.cache_data(ttl=Config.CACHE_TTL_DETECTIONS)
-def fetch_new_detections(date: datetime.date):
-    return APIClient.fetch_detections(date)
+def fetch_new_detections(start_date: datetime.date, end_date: datetime.date):
+    return APIClient.fetch_detections(start_date, end_date)
 
 @st.cache_data(ttl=Config.CACHE_TTL_METRICS)
 def fetch_system_metrics():
@@ -40,21 +41,7 @@ with st.sidebar:
         UIComponents.display_system_metrics()
 
     st.header("Settings")
-    selected_date = st.date_input("Select date", value=datetime.now().date())
-
-    if "last_selected_date" not in st.session_state:
-        st.session_state.last_selected_date = selected_date
-
-    # if date changed while one row is selected -> remove selection
-    date_changed = selected_date != st.session_state.last_selected_date
-    if date_changed:
-        if 'detections_table' in st.session_state:
-            try:
-                st.session_state.detections_table.selection.rows = []
-            except Exception:
-                st.session_state.pop('detections_table', None)
-        st.session_state.last_selected_date = selected_date
-
+    # selected_date = st.date_input("Select date", value=datetime.now().date())
     st.subheader('Table view')
     show_all = st.toggle('Show all', value=False, help='Render all detections for the selected date')
     max_rows = st.slider('Rows to show', min_value=100, max_value=500, value=250, step=50, disabled=show_all,
@@ -95,13 +82,39 @@ with st.sidebar:
 
 # Detection
 st.header("🐦 Detections")
+selected_dates = st.date_input(
+    "Select date range",
+    value=(datetime.now().date() -  timedelta(days=7), datetime.now().date()),
+    help="Select start and end dates for analysis"
+)
+
+# if "last_selected_date" not in st.session_state:
+#     st.session_state.last_selected_date = selected_date
+if "last_selected_dates" not in st.session_state:
+    st.session_state.last_selected_dates = selected_dates
+
+# if date changed while one row is selected -> remove selection
+# date_changed = selected_date != st.session_state.last_selected_date
+dates_changed = selected_dates != st.session_state.last_selected_dates
+if dates_changed:
+    if 'detections_table' in st.session_state:
+        try:
+            st.session_state.detections_table.selection.rows = []
+        except Exception:
+            st.session_state.pop('detections_table', None)
+    st.session_state.last_selected_dates = selected_dates
+
+if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
+    start_date, end_date = selected_dates
+else:
+    start_date = end_date = selected_dates if isinstance(selected_dates, datetime.date) else datetime.now().date()
 
 try:
     st.session_state.is_fetching = True
     with st.spinner("Loading..."):
-        detections = fetch_new_detections(selected_date)
+        detections = fetch_new_detections(start_date, end_date)
         confidence_thresholds = DataProcessor.get_confidence_thresholds(Config.CUSTOM_THRESHOLDS_PATH)
-        df_filtered = DataProcessor.process_detections(detections, selected_date, confidence_thresholds)
+        df_filtered = DataProcessor.process_detections(detections, confidence_thresholds, show_all=show_all)
 finally:
     st.session_state.is_fetching = False
     st.session_state.last_refresh_at = datetime.now()
@@ -135,3 +148,8 @@ else:
     st.divider()
     st.header("🎵 Audio Analysis")
     UIComponents.display_audio_and_spectrogram(selection['timestamp'], selection['offset'])
+    segment_detections = df_filtered[(df_filtered['timestamp'] == selection['timestamp']) & (df_filtered['offset'] == selection['offset'])]
+    segment_detections.sort_values('confidence', ascending=False)
+    species_confidence = segment_detections[['species', 'confidence']].values.tolist()
+    for species, conf in species_confidence:
+        st.markdown(f"{species.replace('_', ' - ')}: {conf:.3f}")

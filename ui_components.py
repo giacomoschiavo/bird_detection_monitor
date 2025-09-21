@@ -59,7 +59,6 @@ class UIComponents:
 
     @staticmethod
     def display_detections_table(df_filtered: pd.DataFrame):
-        """Mostra la tabella delle detection"""
         if df_filtered.empty:
             st.info("Nessun rilevamento per questa data.")
             return None
@@ -67,6 +66,7 @@ class UIComponents:
         # Prepara i dati per la visualizzazione
         display_df = df_filtered[['date', 'time', 'species', 'confidence']].copy()
         display_df['confidence'] = display_df['confidence'].round(3)
+        display_df['species'] = display_df['species'].str.replace('_', ' - ')
 
         st.dataframe(
             display_df,
