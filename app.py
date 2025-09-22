@@ -40,16 +40,14 @@ with st.sidebar:
     with st.spinner('Loading system status...'):
         UIComponents.display_system_metrics()
 
-    st.header("Settings")
+    st.header("Table view")
     # selected_date = st.date_input("Select date", value=datetime.now().date())
-    st.subheader('Table view')
-    show_all = st.toggle('Show all', value=False, help='Render all detections for the selected date')
-    max_rows = st.slider('Rows to show', min_value=100, max_value=500, value=250, step=50, disabled=show_all,
+    # show_all = st.toggle('Show all', value=False, help='Render all detections for the selected date')
+    max_rows = st.slider('Rows to show', min_value=100, max_value=500, value=250, step=50,
                          help="Number of most recent detections to render when 'Show all' is off")
 
     hide_non_species = st.toggle("Hide non-species classes", value=True,
                                  help="Filter out classes like None_, Wind_, Rain_, etc.")
-
 
     st.header("Controls")
 
@@ -83,12 +81,23 @@ with st.sidebar:
 # Detection
 st.header("🐦 Detections")
 
-# Dates selection
-selected_dates = st.date_input(
-    "Select date range",
-    value=(datetime.now().date() -  timedelta(days=7), datetime.now().date()),
-    help="Select start and end dates for analysis"
-)
+col1, col2 = st.columns(2)
+
+with col1:
+    # Dates selection
+    selected_dates = st.date_input(
+        "Select date range",
+        value=(datetime.now().date() -  timedelta(days=7), datetime.now().date()),
+        help="Select start and end dates for analysis"
+    )
+with col2:
+    confidence_levels = ['very_low', 'low', 'medium', 'high', 'very_high']
+    selected_confidence_levels = st.multiselect(
+        "Confidence Levels",
+        options=confidence_levels,
+        default=["medium", "high", "very_high"],
+        help="Filter detections by confidence level quality"
+    )
 
 # if "last_selected_date" not in st.session_state:
 #     st.session_state.last_selected_date = selected_date
@@ -116,9 +125,13 @@ try:
     with st.spinner("Loading..."):
         detections = fetch_new_detections(start_date, end_date)
         confidence_thresholds = DataProcessor.get_confidence_thresholds(Config.CUSTOM_THRESHOLDS_PATH)
-        df = DataProcessor.process_detections(detections, confidence_thresholds, show_all=show_all)
+        df = DataProcessor.process_detections(detections, confidence_thresholds)
         df = Utils.add_confidence_level_column(df, confidence_thresholds)
-
+        if selected_confidence_levels:
+            df = df[df["confidence_level"].isin(selected_confidence_levels)]
+        else:
+            st.warning("No confidence levels selected. Please select at least one level.")
+            df = pd.DataFrame()
 finally:
     st.session_state.is_fetching = False
     st.session_state.last_refresh_at = datetime.now()
@@ -127,21 +140,18 @@ df_view = df   # by default
 if hide_non_species:
     df_view = DataProcessor.filter_non_species(df_view, Config.NON_SPECIES_PREFIXES)
 
-if not df.empty and not show_all:
+if not df.empty:
     df_view = df_view.head(max_rows)
 
 if not df.empty:
     # Statistiche rapide
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     with col1:
         st.metric("Total detections", len(df))
     with col2:
         unique_species = df['species'].nunique()
         st.metric("Unique species", unique_species)
-    with col3:
-        if not df.empty:
-            last_detection = df['datetime'].iloc[0]
-            st.metric("Last detection", last_detection.strftime("%H:%M:%S"))
+
 
 # Tabella detection
 selection = UIComponents.display_detections_table(df_view)

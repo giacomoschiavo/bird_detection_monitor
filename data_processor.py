@@ -37,9 +37,7 @@ class DataProcessor:
         
     @staticmethod
     def process_detections(detections: List[Dict[str, Any]], 
-                           selected_date: int, 
-                           confidence_thresholds: Dict[str, float] = None,
-                           show_all: bool = False) -> pd.DataFrame:
+                           confidence_thresholds: Dict[str, float] = None) -> pd.DataFrame:
         """
         Elabora le detection applicando la logica delle threshold per gruppo datetime
         
@@ -66,7 +64,7 @@ class DataProcessor:
 
         df.sort_values(by="datetime", ascending=False, inplace=True)
         
-        if df.empty or show_all:
+        if df.empty:
             return df
         
         final_rows = []
@@ -93,8 +91,8 @@ class DataProcessor:
                 confidence = row["confidence"]
                 threshold = confidence_thresholds.get(species, 0.2)
 
-                if confidence >= threshold:
-                    final_rows.append(row)
+                # if confidence >= threshold:
+                final_rows.append(row)
 
         if final_rows:
             result_df = pd.DataFrame(final_rows)

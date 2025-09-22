@@ -65,7 +65,8 @@ class UIComponents:
         
         # Prepara i dati per la visualizzazione
         display_df = df[['date', 'time', 'species', 'confidence', 'threshold', 'confidence_level']].copy()
-        display_df['confidence'] = display_df['confidence'].round(3)
+        display_df['confidence'] = display_df['confidence'].round(3).map('{:.3f}'.format)
+        display_df['threshold'] = display_df['threshold'].round(3).map('{:.3f}'.format)
         display_df['species'] = display_df['species'].str.replace('_', ' - ')
         styled_df = display_df.style.map(UIComponents._color_confidence_level, subset=['confidence_level'])
 
