@@ -27,25 +27,25 @@ class UIComponents:
             st.info("Waiting for new data...")
 
     @staticmethod
-    def display_audio_and_spectrogram(timestamp: int, offset: float):
-        if not AudioProcessor.download_and_cache_audio(timestamp):
+    def display_audio_and_spectrogram(filename: str):
+        if not AudioProcessor.download_and_cache_audio(filename):
             warn = st.warning("Audio download failed. Check connection or try again.")
-            retry = st.button("Retry download", key=f"retry_{timestamp}", help="Attempt to download audio again")
+            retry = st.button("Retry download", key=f"retry_{filename}", help="Attempt to download audio again")
             if retry:
-                if AudioProcessor.download_and_cache_audio(timestamp):
+                if AudioProcessor.download_and_cache_audio(filename):
                     st.rerun()
                 else:
                     st.error("Retry failed. Please try later.")
             return
         
-        file_path = AudioProcessor.get_cached_audio_path(timestamp)
+        file_path = AudioProcessor.get_cached_audio_path(filename)
         
         try:
             audio_data = file_path.read_bytes()
-            trimmed_audio_buffer = AudioProcessor.extract_audio_segment(audio_data, offset)
+            trimmed_audio_buffer = AudioProcessor.extract_audio_segment(audio_data)
             
             st.subheader("Audio")
-            st.text(f"Audio name: {timestamp}.wav")
+            st.text(f"Audio name: {filename}.wav")
             st.audio(trimmed_audio_buffer, format="audio/wav")
         
             st.subheader("Spectrogram")
@@ -64,7 +64,8 @@ class UIComponents:
             return None
         
         # Prepara i dati per la visualizzazione
-        display_df = df[['date', 'time', 'species', 'confidence', 'threshold', 'confidence_level']].copy()
+        display_df = df[['date', 'time', 'duration', 'species', 'confidence', 'threshold', 'confidence_level', 'filename']].copy()
+        display_df['duration'] = display_df['duration'].astype(int)
         display_df['confidence'] = display_df['confidence'].round(3).map('{:.3f}'.format)
         display_df['threshold'] = display_df['threshold'].round(3).map('{:.3f}'.format)
         display_df['species'] = display_df['species'].str.replace('_', ' - ')
@@ -89,8 +90,7 @@ class UIComponents:
         if selected_rows:
             selected_index = selected_rows[0]
             return {
-                'timestamp': int(df.iloc[selected_index]["timestamp"]),
-                'offset': float(df.iloc[selected_index]["offset"])
+                'filename': int(df.iloc[selected_index]["filename"]),
             }
         return None
 

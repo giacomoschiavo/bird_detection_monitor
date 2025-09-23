@@ -20,34 +20,35 @@ logger = logging.getLogger(__name__)
 class AudioProcessor:
     
     @staticmethod
-    def get_cached_audio_path(timestamp: int) -> Path:
-        return Config.AUDIO_CACHE_DIR / f"{timestamp}.wav"
+    def get_cached_audio_path(filename: int) -> Path:
+        return Config.AUDIO_CACHE_DIR / f"{filename}.wav"
 
     @staticmethod
-    def download_and_cache_audio(timestamp: int) -> bool:
-        file_path = AudioProcessor.get_cached_audio_path(timestamp)
+    def download_and_cache_audio(filename: int) -> bool:
+        file_path = AudioProcessor.get_cached_audio_path(filename)
         if file_path.exists():
             return True
         with st.spinner("Downloading audio..."):
-            audio_data = APIClient.fetch_audio(timestamp)
+            audio_data = APIClient.fetch_audio(filename)
             if audio_data:
                 try:
                     file_path.write_bytes(audio_data)
-                    logger.info(f"Audio {timestamp}.wav has been saved.")
+                    logger.info(f"Audio {filename}.wav has been saved.")
                     return True
                 except Exception as e:
                     logger.error(f"Error while downloading data: {e}")
                     return False
                 
     @staticmethod
-    def extract_audio_segment(audio_data: bytes, offset: float, duration: float = 3.0) -> io.BytesIO:
+    def extract_audio_segment(audio_data: bytes) -> io.BytesIO:
         try:
             audio_buffer = io.BytesIO(audio_data)
             full_audio = AudioSegment.from_wav(audio_buffer)
 
-            start_time = int(offset * 1000)
-            end_time = int(start_time + duration * 1000)
-            trimmed_audio = full_audio[start_time:end_time]
+            # start_time = int(offset * 1000)
+            # end_time = int(start_time + duration * 1000)
+            # trimmed_audio = full_audio[start_time:end_time]
+            trimmed_audio = full_audio[:]
 
             output_buffer = io.BytesIO()
             trimmed_audio.export(output_buffer, format="wav")

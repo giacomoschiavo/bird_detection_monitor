@@ -7,6 +7,7 @@ from data_processor import DataProcessor
 from utils import Utils
 from ui_components import UIComponents
 from datetime import datetime, timedelta
+import pandas as pd
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -161,11 +162,11 @@ if not selection:
 else:
     st.divider()
     st.header("🎵 Audio Analysis")
-    UIComponents.display_audio_and_spectrogram(selection['timestamp'], selection['offset'])
+    UIComponents.display_audio_and_spectrogram(selection['filename'])
 
     # show species and confidence scores in the same segment
-    segment_detections = df[(df['timestamp'] == selection['timestamp']) & (df['offset'] == selection['offset'])]
-    segment_detections.sort_values('confidence', ascending=False)
-    species_confidence = segment_detections[['species', 'confidence']].values.tolist()
-    for species, conf in species_confidence:
-        st.markdown(f"{species.replace('_', ' - ')}: {conf:.3f}")
+    # segment_detections = df[(df['timestamp'] == selection['timestamp']) & (df['offset'] == selection['offset'])]
+    # segment_detections.sort_values('confidence', ascending=False)
+    # species_confidence = segment_detections[['species', 'confidence']].values.tolist()
+    # for species, conf in species_confidence:
+    #     st.markdown(f"{species.replace('_', ' - ')}: {conf:.3f}")

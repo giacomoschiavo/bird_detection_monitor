@@ -42,15 +42,15 @@ class APIClient:
     
     # request a specific audio using the name (timestamp)
     @staticmethod
-    def fetch_audio(timestamp: int) -> Optional[bytes]:
+    def fetch_audio(filename: int) -> Optional[bytes]:
         try:
             response = requests.get(
-                f"{Config.API_BASE}/birds/audio/{timestamp}",
+                f"{Config.API_BASE}/birds/audio/{filename}",
                 timeout=Config.REQUEST_TIMEOUT
             )
             response.raise_for_status()
             return response.content
         except requests.exceptions.RequestException as e:
-            logging.error(f"Error while fetching audio {timestamp}: {e}")
-            st.error(f"Error while fetching audio {timestamp}: {e}")
+            logging.error(f"Error while fetching audio {filename}: {e}")
+            st.error(f"Error while fetching audio {filename}: {e}")
             return None

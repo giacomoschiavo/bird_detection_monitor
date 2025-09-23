@@ -56,7 +56,7 @@ class DataProcessor:
 
         df = pd.DataFrame(detections)
 
-        df['datetime'] = pd.to_datetime(df['timestamp'], unit='s', utc=True) + pd.to_timedelta(df['offset'], unit='s')
+        df['datetime'] = pd.to_datetime(df['start_time'], unit='s', utc=True)
         df['datetime'] = df['datetime'].dt.tz_convert('Europe/Rome')
 
         df['date'] = df['datetime'].dt.date
