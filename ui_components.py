@@ -13,6 +13,7 @@ class UIComponents:
             # col1, col2, col3, col4 = st.columns(4)
             
             # with col1:
+            st.markdown(f"Recording status: **{'✅ On' if metrics['is_recording'] else '⛔ Off'}**")
             st.markdown(f"CPU Usage: **{metrics['cpu_usage']:.1f}%**")
             st.markdown(f"RAM Usage: **{metrics['ram_usage']:.1f}%**")
             st.markdown(f"Disk Usage: **{metrics['disk_usage']:.1f}%**")
@@ -27,7 +28,7 @@ class UIComponents:
             st.info("Waiting for new data...")
 
     @staticmethod
-    def display_audio_and_spectrogram(filename: str):
+    def display_audio_and_spectrogram(filename: str, prediction_time: float, prediction_duration: float):
         if not AudioProcessor.download_and_cache_audio(filename):
             warn = st.warning("Audio download failed. Check connection or try again.")
             retry = st.button("Retry download", key=f"retry_{filename}", help="Attempt to download audio again")
@@ -44,13 +45,11 @@ class UIComponents:
             audio_data = file_path.read_bytes()
             trimmed_audio_buffer = AudioProcessor.extract_audio_segment(audio_data)
             
-            st.subheader("Audio")
             st.text(f"Audio name: {filename}.wav")
             st.audio(trimmed_audio_buffer, format="audio/wav")
         
-            st.subheader("Spectrogram")
             with st.spinner("Spectrogram generation..."):
-                fig = SpectrogramGenerator.create_spectrogram_xc(trimmed_audio_buffer)
+                fig = SpectrogramGenerator.create_spectrogram_xc(trimmed_audio_buffer, prediction_time, prediction_duration)
                 st.pyplot(fig)
                 plt.close(fig) 
                     
@@ -68,7 +67,7 @@ class UIComponents:
         display_df['duration'] = display_df['duration'].astype(int)
         display_df['confidence'] = display_df['confidence'].round(3).map('{:.3f}'.format)
         display_df['threshold'] = display_df['threshold'].round(3).map('{:.3f}'.format)
-        display_df['species'] = display_df['species'].str.replace('_', ' - ')
+        display_df['species'] = display_df['species'].str.replace('_', ', ')
         styled_df = display_df.style.map(UIComponents._color_confidence_level, subset=['confidence_level'])
 
         st.dataframe(
@@ -91,6 +90,8 @@ class UIComponents:
             selected_index = selected_rows[0]
             return {
                 'filename': int(df.iloc[selected_index]["filename"]),
+                "start_time": int(df.iloc[selected_index]["start_time"]),
+                "duration": int(df.iloc[selected_index]["duration"])
             }
         return None
 
