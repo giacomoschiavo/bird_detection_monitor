@@ -67,37 +67,37 @@ class DataProcessor:
         if df.empty:
             return df
         
-        final_rows = []
-        for datetime_group, group_df in df.groupby("datetime"):
-            # cerca none nel gruppo
-            none_rows = group_df[group_df["species"] == "None_"]
-            other_species_rows = group_df[group_df["species"] != "None_"]
+        # final_rows = []
+        # for datetime_group, group_df in df.groupby("datetime"):
+        #     # cerca none nel gruppo
+        #     none_rows = group_df[group_df["species"] == "None_"]
+        #     other_species_rows = group_df[group_df["species"] != "None_"]
 
-            # caso solo None 
-            if len(none_rows) > 0 and len(other_species_rows) == 0:
-                continue    # skip this datetime
+        #     # caso solo None 
+        #     if len(none_rows) > 0 and len(other_species_rows) == 0:
+        #         continue    # skip this datetime
 
-            # caso none con altre specie
-            if len(none_rows) > 0:
-                none_confidence = none_rows.iloc[0]["confidence"]
-                none_threshold = confidence_thresholds.get("None_", 0.2)
+        #     # caso none con altre specie
+        #     if len(none_rows) > 0:
+        #         none_confidence = none_rows.iloc[0]["confidence"]
+        #         none_threshold = confidence_thresholds.get("None_", 0.2)
 
-                if none_confidence >= none_threshold:
-                    continue    # skip this datetime
+        #         if none_confidence >= none_threshold:
+        #             continue    # skip this datetime
 
-            # controlla le altre specie
-            for _, row in other_species_rows.iterrows():
-                species = row["species"]
-                confidence = row["confidence"]
-                threshold = confidence_thresholds.get(species, 0.2)
+        #     # controlla le altre specie
+        #     for _, row in other_species_rows.iterrows():
+        #         species = row["species"]
+        #         confidence = row["confidence"]
+        #         threshold = confidence_thresholds.get(species, 0.2)
 
-                # if confidence >= threshold:
-                final_rows.append(row)
-
-        if final_rows:
-            result_df = pd.DataFrame(final_rows)
-            result_df.sort_values(by="datetime", ascending=False, inplace=True)
-            return result_df
+        #         # if confidence >= threshold:
+        #         final_rows.append(row)
+        final_rows = df
+        # if final_rows:
+        result_df = pd.DataFrame(final_rows)
+        result_df.sort_values(by="datetime", ascending=False, inplace=True)
+        return result_df
 
         return pd.DataFrame(columns=df.columns)
     
