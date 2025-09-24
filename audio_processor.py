@@ -14,6 +14,9 @@ from scipy.io import wavfile
 from scipy import signal
 import logging
 
+import matplotlib.patches as patches
+
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -80,7 +83,7 @@ class SpectrogramGenerator:
             raise
 
     @staticmethod
-    def create_spectrogram_xc(audio_buffer: io.BytesIO) -> plt.Figure:
+    def create_spectrogram_xc(audio_buffer: io.BytesIO, prediction_time: float, prediction_duration: float) -> plt.Figure:
         try:
             sample_rate, samples = wavfile.read(audio_buffer)
             if samples.ndim > 1:
@@ -133,9 +136,17 @@ class SpectrogramGenerator:
             )
             ax.set_ylabel("Frequency (Hz)")
             ax.set_xlabel("Time (s)")
-            # cbar = plt.colorbar(im, ax=ax, pad=0.01)
-            # cbar.ax.invert_yaxis()
-            # cbar.set_label("Power (dB)")
+            rect = patches.Rectangle(
+                (prediction_time, freqs_plot.min()),
+                prediction_duration,
+                freqs_plot.max() - freqs_plot.min(),
+                linewidth=1,
+                edgecolor='blue',
+                facecolor='none'
+            )
+            ax.add_patch(rect)
+
+
             fig.tight_layout()
             return fig
         except Exception as e:
