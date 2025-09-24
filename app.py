@@ -121,21 +121,46 @@ if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
 else:
     start_date = end_date = selected_dates if isinstance(selected_dates, datetime.date) else datetime.now().date()
 
-try:
-    st.session_state.is_fetching = True
-    with st.spinner("Loading..."):
-        detections = fetch_new_detections(start_date, end_date)
-        confidence_thresholds = DataProcessor.get_confidence_thresholds(Config.CUSTOM_THRESHOLDS_PATH)
-        df = DataProcessor.process_detections(detections, confidence_thresholds)
-        df = Utils.add_confidence_level_column(df, confidence_thresholds)
-        if selected_confidence_levels:
-            df = df[df["confidence_level"].isin(selected_confidence_levels)]
-        else:
-            st.warning("No confidence levels selected. Please select at least one level.")
-            df = pd.DataFrame()
-finally:
-    st.session_state.is_fetching = False
-    st.session_state.last_refresh_at = datetime.now()
+with st.spinner("Loading..."):
+    detections = fetch_new_detections(start_date, end_date)
+    confidence_thresholds = DataProcessor.get_confidence_thresholds(Config.CUSTOM_THRESHOLDS_PATH)
+    with st.expander("Modify confidence thresholds per species"):
+        col1, col2 = st.columns(2)
+        # Dizionario per soglie modificate
+        modified_thresholds = {}
+        for i, (species, threshold) in enumerate(confidence_thresholds.items()):
+            formatted_name = species.replace("_", ", " if species.split("_")[1] else "")
+            if i < len(confidence_thresholds) / 2:
+                with col1:
+                    modified_value = st.slider(
+                        label=f"Threshold for **{formatted_name}**",
+                        min_value=0.0,
+                        max_value=1.0,
+                        value=float(threshold),
+                        step=0.01,
+                        key=f"slider_{species}",
+                    )
+                    modified_thresholds[species] = modified_value
+
+            else:
+                with col2:
+                    modified_value = st.slider(
+                        label=f"Threshold for **{formatted_name}**",
+                        min_value=0.0,
+                        max_value=1.0,
+                        value=float(threshold),
+                        step=0.01,
+                        key=f"slider_{species}"
+                    )
+                    modified_thresholds[species] = modified_value
+
+    df = DataProcessor.process_detections(detections, modified_thresholds)
+    df = Utils.add_confidence_level_column(df, modified_thresholds)
+    if selected_confidence_levels:
+        df = df[df["confidence_level"].isin(selected_confidence_levels)]
+    else:
+        st.warning("No confidence levels selected. Please select at least one level.")
+        df = pd.DataFrame()
 
 df_view = df   # by default
 if hide_non_species:
@@ -153,6 +178,9 @@ if not df.empty:
         unique_species = df['species'].nunique()
         st.metric("Unique species", unique_species)
 
+# Species confidence setup
+
+
 
 # Tabella detection
 selection = UIComponents.display_detections_table(df_view)
@@ -160,9 +188,8 @@ selection = UIComponents.display_detections_table(df_view)
 if not selection:
     st.info("Select a row to listen to the audio")
 else:
-    st.divider()
     st.header("🎵 Audio Analysis")
-    UIComponents.display_audio_and_spectrogram(selection['filename'])
+    UIComponents.display_audio_and_spectrogram(selection['filename'], selection["start_time"] - int(selection['filename']), selection["duration"])
 
     # show species and confidence scores in the same segment
     # segment_detections = df[(df['timestamp'] == selection['timestamp']) & (df['offset'] == selection['offset'])]
