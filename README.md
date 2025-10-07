@@ -43,10 +43,7 @@ bird_detection_monitor/
 │
 ├── data/                      # Data directory
 │   ├── downloaded_audio/      # Cached audio files
-│   └── species_confidence.csv # Species confidence thresholds
-│
-├── logs/                      # Application logs
-    └── app.log
+│   └── species_confidence.csv # Species confidence thresholds│
 ```
 
 ## 🚀 Installation

@@ -9,7 +9,6 @@ from scipy.io import wavfile
 from scipy import signal
 import numpy as np
 import io
-from scipy.signal import spectrogram
 from scipy.io import wavfile
 from scipy import signal
 import logging
@@ -48,9 +47,6 @@ class AudioProcessor:
             audio_buffer = io.BytesIO(audio_data)
             full_audio = AudioSegment.from_wav(audio_buffer)
 
-            # start_time = int(offset * 1000)
-            # end_time = int(start_time + duration * 1000)
-            # trimmed_audio = full_audio[start_time:end_time]
             trimmed_audio = full_audio[:]
 
             output_buffer = io.BytesIO()
@@ -88,10 +84,6 @@ class SpectrogramGenerator:
             sample_rate, samples = wavfile.read(audio_buffer)
             if samples.ndim > 1:
                 samples = samples[:, 0]  # mono
-            # Cast to float32 in [-1,1] if PCM ints
-            # if np.issubdtype(samples.dtype, np.integer):
-            #     max_val = np.iinfo(samples.dtype).max
-            #     samples = samples.astype(np.float32) / max_val
 
             # STFT params
             # Hann window, relatively long window for better freq detail on whistles
