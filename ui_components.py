@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from api_client import APIClient
 from audio_processor import AudioProcessor, SpectrogramGenerator
+from typing import Dict
 
 class UIComponents:
     @staticmethod
@@ -96,6 +97,38 @@ class UIComponents:
         return None
 
     @staticmethod
+    def display_species_confidence_slider(confidence_thresholds: Dict[str, float] = {}):
+        with st.expander("Modify confidence thresholds per species"):
+            col1, col2 = st.columns(2)      # divide in two columns 
+            modified_thresholds = {}
+            for i, (species, threshold) in enumerate(confidence_thresholds.items()):
+                formatted_name = species.replace("_", ", " if species.split("_")[1] else "")
+                if i < len(confidence_thresholds) / 2:
+                    with col1:
+                        modified_value = st.slider(
+                            label=f"Threshold for **{formatted_name}**",
+                            min_value=0.0,
+                            max_value=1.0,
+                            value=float(threshold),
+                            step=0.01,
+                            key=f"slider_{species}",
+                        )
+                        modified_thresholds[species] = modified_value
+
+                else:
+                    with col2:
+                        modified_value = st.slider(
+                            label=f"Threshold for **{formatted_name}**",
+                            min_value=0.0,
+                            max_value=1.0,
+                            value=float(threshold),
+                            step=0.01,
+                            key=f"slider_{species}"
+                        )
+                        modified_thresholds[species] = modified_value
+        return modified_thresholds
+    
+    @staticmethod
     def _color_confidence_level(val):
         """Colora le celle in base al livello di confidenza"""
         color_map = {
@@ -106,3 +139,4 @@ class UIComponents:
             'very_high': 'background-color: #388e3c; color: white'    # Verde scuro
         }
         return color_map.get(val, '')
+    

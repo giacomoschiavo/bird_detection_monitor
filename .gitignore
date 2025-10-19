@@ -5,3 +5,6 @@ venv/
 .venv/
 *.tflite
 *.wav
+recordings/
+spectrograms/
+recordings.zip
