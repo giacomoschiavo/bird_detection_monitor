@@ -83,7 +83,7 @@ with st.sidebar:
     st.header("Table view")
 
     # Slider to limit number of rendered rows for performance on large datasets
-    max_rows = st.slider('Rows to show', min_value=100, max_value=500, value=250, step=50,
+    max_rows = st.slider('Rows to show', min_value=100, max_value=5000, value=2500, step=50,
                          help="Number of most recent detections to render when 'Show all' is off")
     # Toggle to exclude non-species classes (e.g., None_, Wind_, Rain_)
     hide_non_species = st.toggle("Hide non-species classes", value=True,
