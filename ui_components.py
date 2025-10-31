@@ -60,7 +60,7 @@ class UIComponents:
     @staticmethod
     def display_detections_table(df: pd.DataFrame):
         if df.empty:
-            st.info("Nessun rilevamento per questa data.")
+            st.info("No detections found for the selected criteria.")
             return None
         
         # Prepara i dati per la visualizzazione

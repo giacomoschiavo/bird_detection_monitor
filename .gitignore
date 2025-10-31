@@ -7,4 +7,4 @@ venv/
 *.wav
 recordings/
 spectrograms/
-recordings.zip
+*.zip

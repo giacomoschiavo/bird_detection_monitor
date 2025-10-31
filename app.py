@@ -8,7 +8,9 @@ from utils import Utils
 from ui_components import UIComponents
 from datetime import datetime, timedelta
 import pandas as pd
-
+import threading
+from pathlib import Path
+import csv
 # Configure logging for debugging and monitoring
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,6 +24,10 @@ logger = logging.getLogger(__name__)
 if 'audio_cache' not in st.session_state:
     st.session_state.audio_cache = {}
 
+metrics_logging_active = False
+stop_logging_flag = False
+metrics_thread = None
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Page configuration
 # ─────────────────────────────────────────────────────────────────────────────
@@ -32,6 +38,12 @@ st.set_page_config(
     layout='wide',      # Use full browser width for data tables
     initial_sidebar_state="expanded"        # Show sidebar controls by default
 )
+
+if "is_logging" not in st.session_state:
+    st.session_state.is_logging = False
+if "logging_thread" not in st.session_state:
+    st.session_state.logging_thread = None
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Cached data-fetching functions
@@ -69,7 +81,44 @@ def fetch_system_metrics():
 
     return APIClient.fetch_system_metrics()
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Metrics logging function
+# ─────────────────────────────────────────────────────────────────────────────
+def log_metrics_worker(stop_event):
+    """Background thread that logs system metrics every minute"""
+    log_file = Path("system_metrics_log.csv")
     
+    # Create CSV with headers if not exists
+    if not log_file.exists():
+        with open(log_file, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['timestamp', 'cpu_usage', 'ram_usage', 'disk_usage', 'temperature'])
+    
+    while not stop_event.is_set():
+        try:
+            # Fetch metrics using existing method
+            metrics = APIClient.fetch_system_metrics()
+            
+            # Extract values
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            cpu = metrics.get('cpu_usage', 0)
+            ram_used = metrics.get('ram_usage', 0)
+            disk_used = metrics.get('disk_usage', 0)
+            temp = metrics.get('temperature', 0)
+            
+            # Write to CSV
+            with open(log_file, 'a', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow([timestamp, cpu, ram_used, disk_used, temp])
+                print(f"Logged metrics at {timestamp}")
+            
+        except Exception as e:
+            logger.error(f"Error logging metrics: {e}")
+        
+        # Wait 60 seconds or until stop signal
+        stop_event.wait(60)
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # SIDEBAR
 # ═════════════════════════════════════════════════════════════════════════════
@@ -80,7 +129,27 @@ with st.sidebar:
     with st.spinner('Loading system status...'):
         UIComponents.display_system_metrics()
 
-    st.header("Table view")
+    st.header("📈 Metrics Logging")
+    
+    if st.session_state.is_logging:
+        st.success("🔴 Recording metrics...")
+
+    # Control buttons
+    if st.button("▶️ Start Log", disabled=st.session_state.is_logging, use_container_width=True):
+        st.session_state.is_logging = True
+        stop_event = threading.Event()
+        st.session_state.stop_event = stop_event
+        thread = threading.Thread(target=log_metrics_worker, args=(stop_event,), daemon=True)
+        thread.start()
+        st.session_state.logging_thread = thread
+        st.rerun()
+
+    # Show log file info
+    log_file_path = Path("system_metrics_log.csv")
+    if log_file_path.exists():
+        file_size = log_file_path.stat().st_size / 1024  # KB
+        st.caption(f"Log file: {file_size:.1f} KB")
+        st.header("Table view")
 
     # Slider to limit number of rendered rows for performance on large datasets
     max_rows = st.slider('Rows to show', min_value=100, max_value=5000, value=2500, step=50,
@@ -172,15 +241,18 @@ else:
 # ─────────────────────────────────────────────────────────────────────────────
 with st.spinner("Loading..."):
     detections = fetch_new_detections(start_date, end_date)
-    confidence_thresholds = DataProcessor.get_confidence_thresholds(Config.CUSTOM_THRESHOLDS_PATH)
-    modified_thresholds = UIComponents.display_species_confidence_slider(confidence_thresholds)
-    df = DataProcessor.process_detections(detections, modified_thresholds)
-    df = Utils.add_confidence_level_column(df, modified_thresholds)
-    if selected_confidence_levels:
-        df = df[df["confidence_level"].isin(selected_confidence_levels)]
+    if len(detections) == 0:
+        df = pd.DataFrame()  # empty
     else:
-        st.warning("No confidence levels selected. Please select at least one level.")
-        df = pd.DataFrame()
+        confidence_thresholds = DataProcessor.get_confidence_thresholds(Config.CUSTOM_THRESHOLDS_PATH)
+        modified_thresholds = UIComponents.display_species_confidence_slider(confidence_thresholds)
+        df = DataProcessor.process_detections(detections, modified_thresholds)
+        df = Utils.add_confidence_level_column(df, modified_thresholds)
+        if selected_confidence_levels:
+            df = df[df["confidence_level"].isin(selected_confidence_levels)]
+        else:
+            st.warning("No confidence levels selected. Please select at least one level.")
+            df = pd.DataFrame()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Apply optional non-species filtering
@@ -209,7 +281,8 @@ if not df.empty:
 selection = UIComponents.display_detections_table(df_view)
 
 if not selection:
-    st.info("Select a row to listen to the audio")
+    if not df_view.empty:
+        st.info("Select a row to listen to the audio")
 else:
     st.header("🎵 Audio Analysis")
     UIComponents.display_audio_and_spectrogram(selection['filename'], selection["start_time"] - int(selection['filename']), selection["duration"])
